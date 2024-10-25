@@ -1,0 +1,66 @@
+services:
+  auth-app:
+    build:
+      context: .
+      dockerfile: ./docker/app/Dockerfile
+    container_name: tgtime-auth-app
+    env_file:
+      - .env
+    ports:
+      - "${HTTP_PORT}:${HTTP_PORT}"
+      - "${GRPC_PORT}:${GRPC_PORT}"
+    networks:
+      - tgtime-auth-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${HTTP_PORT}/service/status"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 1s
+    depends_on:
+      db:
+        condition: service_healthy
+    links:
+      - db
+  db:
+    image: postgres:16.2
+    container_name: tgtime-auth-db
+    restart: always
+    ports:
+      - "${DATABASE_PG_PORT}:${DATABASE_PG_PORT}"
+    volumes:
+      - tgtime-auth-data:/var/lib/postgresql/data
+      - ./init.sql:/docker/db/docker-entrypoint-initdb.d/init.sql
+    environment:
+      POSTGRES_DB: ${DATABASE_PG_NAME}
+      POSTGRES_USER: ${DATABASE_PG_USER}
+      POSTGRES_PASSWORD: ${DATABASE_PG_PASSWORD}
+    networks:
+      tgtime-auth-network:
+        aliases:
+          - database
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 1s
+  migrate:
+    image: migrate/migrate
+    networks:
+      - tgtime-auth-network
+    volumes:
+      - ${DATABASE_MIGRATION_DIR}:/migrations
+    command: ["-path", "/migrations", "-database", "postgres://${DATABASE_PG_USER}:${DATABASE_PG_PASSWORD}@database:${DATABASE_PG_PORT}/${DATABASE_PG_NAME}?sslmode=${DATABASE_PG_SSL_MODE}", "up"]
+    links:
+      - db
+    depends_on:
+      db:
+        condition: service_healthy
+
+networks:
+  tgtime-auth-network:
+    driver: bridge
+
+volumes:
+  tgtime-auth-data:
