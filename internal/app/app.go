@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	kitgrpc "github.com/go-kit/kit/transport/grpc"
 	"github.com/oklog/oklog/pkg/group"
@@ -14,7 +16,10 @@ import (
 	"google.golang.org/grpc/reflection"
 
 	"github.com/robertobadjio/platform-common/pkg/closer"
+	transport2 "github.com/robertobadjio/tgtime-auth/internal/service/access/transport"
 	"github.com/robertobadjio/tgtime-auth/internal/service/auth/transport"
+	transportServiceHttp "github.com/robertobadjio/tgtime-auth/internal/service/service/transport"
+	"github.com/robertobadjio/tgtime-auth/pkg/api/access_v1"
 	"github.com/robertobadjio/tgtime-auth/pkg/api/auth_v1"
 )
 
@@ -70,6 +75,40 @@ func (a *App) initServiceProvider(_ context.Context) error {
 func (a *App) initAPIGateway(ctx context.Context) error {
 	var g group.Group
 	{
+		httpListener, err := net.Listen("tcp", a.serviceProvider.HTTPConfig().Address())
+		if err != nil {
+			return err
+		}
+		g.Add(func() error {
+			_ = a.serviceProvider.Logger().Log(
+				"transport",
+				"HTTP",
+				"addr",
+				a.serviceProvider.HTTPConfig().Address(),
+			)
+
+			sm := http.NewServeMux()
+			/*sm.Handle(
+				transport.BasePostfix+transport.VersionAPIPostfix+"/",
+				a.serviceProvider.HTTPTimeHandler(ctx),
+			)*/
+			sm.Handle(
+				transportServiceHttp.ServiceStatus,
+				a.serviceProvider.HTTPServiceHandler(ctx),
+			)
+
+			srv := &http.Server{
+				ReadTimeout:  5 * time.Second,
+				WriteTimeout: 10 * time.Second,
+				Handler:      sm,
+			}
+			return srv.Serve(httpListener)
+		}, func(err error) {
+			_ = a.serviceProvider.Logger().Log("transport", "HTTP", "during", "Listen", "err", err)
+			_ = httpListener.Close()
+		})
+	}
+	{
 		grpcListener, err := net.Listen("tcp", a.serviceProvider.GRPCConfig().Address())
 		if err != nil {
 			return err
@@ -83,8 +122,14 @@ func (a *App) initAPIGateway(ctx context.Context) error {
 
 			reflection.Register(baseServer)
 
-			auth_v1.RegisterAuthV1Server(baseServer, transport.NewGRPCServer(a.serviceProvider.EndpointAuthSet(ctx)))
-			//access_v1.RegisterAccessV1Server(baseServer, NewGRPCServer(a.serviceProvider.EndpointAccessSet(ctx)))
+			auth_v1.RegisterAuthV1Server(
+				baseServer,
+				transport.NewGRPCServer(a.serviceProvider.EndpointAuthSet(ctx)),
+			)
+			access_v1.RegisterAccessV1Server(
+				baseServer,
+				transport2.NewGRPCServer(a.serviceProvider.EndpointAccessSet(ctx)),
+			)
 
 			return baseServer.Serve(grpcListener)
 		}, func(error) {

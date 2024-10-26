@@ -12,7 +12,8 @@ import (
 )
 
 const (
-	serviceStatus = "/service/status"
+	// ServiceStatus ???
+	ServiceStatus = "/service/status"
 )
 
 type errorer interface {
@@ -27,7 +28,7 @@ func NewHTTPHandler(ep endpoints.Set) http.Handler {
 		httptransport.ServerErrorEncoder(encodeError),
 	}
 
-	router.Methods(http.MethodGet).Path(serviceStatus).Handler(
+	router.Methods(http.MethodGet).Path(ServiceStatus).Handler(
 		httptransport.NewServer(
 			ep.ServiceStatusEndpoint,
 			decodeHTTPServiceStatusRequest,
