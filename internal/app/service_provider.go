@@ -41,18 +41,33 @@ type serviceProvider struct {
 
 	userRepository user.Repository
 
-	token config.Token
+	token      config.Token
+	promConfig config.PromConfig
 }
 
 func newServiceProvider() *serviceProvider {
 	return &serviceProvider{}
 }
 
+func (sp *serviceProvider) PromConfig() config.PromConfig {
+	if sp.promConfig == nil {
+		promConfig, err := config.NewPromConfig()
+		if err != nil {
+			logger.Error("config", "http", "error", err.Error())
+			os.Exit(1)
+		}
+
+		sp.promConfig = promConfig
+	}
+
+	return sp.promConfig
+}
+
 func (sp *serviceProvider) HTTPConfig() config.HTTPConfig {
 	if sp.httpConfig == nil {
 		httpConfig, err := config.NewHTTPConfig()
 		if err != nil {
-			logger.Log("config", "http", "error", err.Error())
+			logger.Error("config", "http", "error", err.Error())
 			os.Exit(1)
 		}
 
@@ -88,7 +103,7 @@ func (sp *serviceProvider) Token() config.Token {
 	if sp.token == nil {
 		token, err := config.NewToken()
 		if err != nil {
-			logger.Log("type", "di", "service", "token", "err", err.Error())
+			logger.Error("type", "di", "service", "token", "err", err.Error())
 			os.Exit(1)
 		}
 
@@ -102,13 +117,13 @@ func (sp *serviceProvider) DB(ctx context.Context) db.Client {
 	if sp.db == nil {
 		cl, err := pg.New(ctx, sp.PGConfig().DSN())
 		if err != nil {
-			logger.Log("type", "di", "service", "db client master", "err", err.Error())
+			logger.Error("type", "di", "service", "db client master", "err", err.Error())
 			os.Exit(1)
 		}
 
 		err = cl.DB().Ping(ctx)
 		if err != nil {
-			logger.Log("type", "di", "service", "ping db client master", "err", err.Error())
+			logger.Error("type", "di", "service", "ping db client master", "err", err.Error())
 			os.Exit(1)
 		}
 		closer.Add(cl.Close)
@@ -136,7 +151,7 @@ func (sp *serviceProvider) GRPCConfig() config.GRPCConfig {
 	if sp.grpcConfig == nil {
 		grpcConfig, err := config.NewGRPCConfig()
 		if err != nil {
-			logger.Log("config", "http", "error", err.Error())
+			logger.Error("config", "http", "error", err.Error())
 			os.Exit(1)
 		}
 

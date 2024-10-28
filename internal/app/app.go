@@ -3,7 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
-	"github.com/robertobadjio/tgtime-auth/internal/interceptor"
+	"github.com/robertobadjio/tgtime-auth/internal/metric"
 	"net"
 	"net/http"
 	"os"
@@ -14,10 +14,12 @@ import (
 	kitgrpc "github.com/go-kit/kit/transport/grpc"
 	grpcMiddleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/oklog/oklog/pkg/group"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/robertobadjio/platform-common/pkg/closer"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
+	"github.com/robertobadjio/tgtime-auth/internal/interceptor"
 	"github.com/robertobadjio/tgtime-auth/internal/logger"
 	transportAccess "github.com/robertobadjio/tgtime-auth/internal/service/access/transport"
 	"github.com/robertobadjio/tgtime-auth/internal/service/auth/transport"
@@ -58,6 +60,8 @@ func (a *App) initDeps(ctx context.Context) error {
 	inits := []func(context.Context) error{
 		a.initServiceProvider,
 		a.initAPIGateway,
+		a.initPrometheus,
+		// TODO: Init swagger
 	}
 
 	for _, f := range inits {
@@ -84,10 +88,9 @@ func (a *App) initAPIGateway(ctx context.Context) error {
 		}
 		g.Add(func() error {
 			logger.Info(
-				"transport",
-				"HTTP",
-				"addr",
-				a.serviceProvider.HTTPConfig().Address(),
+				"transport", "HTTP",
+				"component", "API",
+				"addr", a.serviceProvider.HTTPConfig().Address(),
 			)
 
 			sm := http.NewServeMux()
@@ -107,7 +110,7 @@ func (a *App) initAPIGateway(ctx context.Context) error {
 			}
 			return srv.Serve(httpListener)
 		}, func(err error) {
-			logger.Error("transport", "HTTP", "during", "Listen", "err", err.Error())
+			logger.Error("transport", "HTTP", "component", "API", "during", "Listen", "err", err.Error())
 			_ = httpListener.Close()
 		})
 	}
@@ -117,13 +120,14 @@ func (a *App) initAPIGateway(ctx context.Context) error {
 			return err
 		}
 		g.Add(func() error {
-			logger.Info("transport", "GRPC", "addr", a.serviceProvider.GRPCConfig().Address())
+			logger.Info("transport", "GRPC", "component", "API", "addr", a.serviceProvider.GRPCConfig().Address())
 
 			baseServer := grpc.NewServer(
 				grpc.UnaryInterceptor(
 					grpcMiddleware.ChainUnaryServer(
 						kitgrpc.Interceptor,
 						interceptor.LogInterceptor,
+						interceptor.MetricsInterceptor,
 					),
 				),
 			)
@@ -141,7 +145,7 @@ func (a *App) initAPIGateway(ctx context.Context) error {
 
 			return baseServer.Serve(grpcListener)
 		}, func(err error) {
-			logger.Error("transport", "GRPC", "during", "Listen", "err", err.Error())
+			logger.Error("transport", "GRPC", "component", "API", "during", "Listen", "err", err.Error())
 			_ = grpcListener.Close()
 		})
 	}
@@ -162,6 +166,45 @@ func (a *App) initAPIGateway(ctx context.Context) error {
 	}
 
 	a.apiGateway = g
+
+	return nil
+}
+
+func (a *App) initPrometheus(ctx context.Context) error {
+	err := metric.Init(ctx)
+	if err != nil {
+		logger.Error(
+			"component", "prometheus",
+			"error", err.Error(),
+		)
+		os.Exit(1)
+	}
+
+	httpListener, err := net.Listen("tcp", a.serviceProvider.PromConfig().Address())
+	if err != nil {
+		return err
+	}
+
+	a.apiGateway.Add(func() error {
+		logger.Info(
+			"transport", "HTTP",
+			"component", "prometheus",
+			"addr", a.serviceProvider.PromConfig().Address(),
+		)
+
+		sm := http.NewServeMux()
+		sm.Handle("/metrics", promhttp.Handler()) // TODO: In const?
+
+		srv := &http.Server{
+			//Addr:    a.serviceProvider.promConfig.Address(),
+			Handler: sm,
+		}
+
+		return srv.Serve(httpListener)
+	}, func(err error) {
+		logger.Error("transport", "HTTP", "component", "prometheus", "during", "listen", "err", err.Error())
+		_ = httpListener.Close()
+	})
 
 	return nil
 }

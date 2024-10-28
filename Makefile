@@ -4,6 +4,8 @@
 
 DOCKER_COMPOSE ?= docker compose -f docker-compose.yml
 
+include .env
+
 export GOOS=linux
 export GOARCH=amd64
 
@@ -66,5 +68,15 @@ generate-access-api: ## Generate pb.go files for Access API
         	--validate_out lang=go:pkg/api/access_v1 --validate_opt=paths=source_relative \
         	access.proto
 
-generate-secret-key:
+generate-secret-key: ## Generate random string with length 30
 	openssl rand -base64 30
+
+grpc-load-test: ## Run GRPC load testing
+	ghz \
+		--proto api/v1/pb/auth.proto \
+		--call auth_v1.AuthV1.Login \
+		--data '{"email": "test3@tgtime.ru", "password": "vtlcgjgek"}' \
+		--rps 100 \
+		--total 3000 \
+		--insecure \
+		localhost:${GRPC_PORT}

@@ -1,5 +1,5 @@
 services:
-  auth-app:
+  app:
     build:
       context: .
       dockerfile: ./docker/app/Dockerfile
@@ -9,6 +9,7 @@ services:
     ports:
       - "${HTTP_PORT}:${HTTP_PORT}"
       - "${GRPC_PORT}:${GRPC_PORT}"
+      - "${PROMETHEUS_APP_PORT}:${PROMETHEUS_APP_PORT}"
     networks:
       - tgtime-auth-network
     healthcheck:
@@ -22,6 +23,7 @@ services:
         condition: service_healthy
     links:
       - db
+
   db:
     image: postgres:16.2
     container_name: tgtime-auth-db
@@ -45,6 +47,7 @@ services:
       timeout: 5s
       retries: 5
       start_period: 1s
+
   migrate:
     image: migrate/migrate
     networks:
@@ -58,9 +61,43 @@ services:
       db:
         condition: service_healthy
 
+  prometheus:
+    image: prom/prometheus:v2.37.9
+    ports:
+      - "${PROMETHEUS_PORT}:${PROMETHEUS_PORT}"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./alerts.yml:/etc/prometheus/alerts.yml
+      - prometheus_data:/prometheus
+    depends_on:
+      app:
+        condition: service_healthy
+    networks:
+      - tgtime-auth-network
+
+  grafana:
+    image: grafana/grafana-oss:10.0.3
+    ports:
+      - "${GRAFANA_PORT}:${GRAFANA_PORT}"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - tgtime-auth-network
+
+  postgresql_exporter:
+    image: wrouesnel/postgres_exporter:v0.8.0
+    restart: unless-stopped
+    networks:
+      - tgtime-auth-network
+    environment:
+      DATA_SOURCE_NAME: "postgres://${DATABASE_PG_USER}:${DATABASE_PG_PASSWORD}@database:${DATABASE_PG_PORT}/${DATABASE_PG_NAME}?sslmode=${DATABASE_PG_SSL_MODE}"
+      PG_EXPORTER_AUTO_DISCOVER_DATABASES: true
+
 networks:
   tgtime-auth-network:
     driver: bridge
 
 volumes:
   tgtime-auth-data:
+  prometheus_data:
+  grafana_data:
