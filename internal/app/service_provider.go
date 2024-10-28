@@ -5,12 +5,12 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/go-kit/kit/log"
 	"github.com/robertobadjio/platform-common/pkg/closer"
 	"github.com/robertobadjio/platform-common/pkg/db"
 	"github.com/robertobadjio/platform-common/pkg/db/pg"
 
 	"github.com/robertobadjio/tgtime-auth/internal/config"
+	"github.com/robertobadjio/tgtime-auth/internal/logger"
 	"github.com/robertobadjio/tgtime-auth/internal/repository/user"
 	"github.com/robertobadjio/tgtime-auth/internal/repository/user/pg_db"
 	"github.com/robertobadjio/tgtime-auth/internal/service/access"
@@ -23,8 +23,6 @@ import (
 )
 
 type serviceProvider struct {
-	logger log.Logger
-
 	pgConfig config.PGConfig
 	db       db.Client
 
@@ -54,7 +52,7 @@ func (sp *serviceProvider) HTTPConfig() config.HTTPConfig {
 	if sp.httpConfig == nil {
 		httpConfig, err := config.NewHTTPConfig()
 		if err != nil {
-			_ = sp.Logger().Log("config", "http", "error", err.Error())
+			logger.Log("config", "http", "error", err.Error())
 			os.Exit(1)
 		}
 
@@ -90,7 +88,7 @@ func (sp *serviceProvider) Token() config.Token {
 	if sp.token == nil {
 		token, err := config.NewToken()
 		if err != nil {
-			_ = sp.Logger().Log("type", "di", "service", "token", "err", err.Error())
+			logger.Log("type", "di", "service", "token", "err", err.Error())
 			os.Exit(1)
 		}
 
@@ -104,13 +102,13 @@ func (sp *serviceProvider) DB(ctx context.Context) db.Client {
 	if sp.db == nil {
 		cl, err := pg.New(ctx, sp.PGConfig().DSN())
 		if err != nil {
-			_ = sp.Logger().Log("type", "di", "service", "db client master", "err", err.Error())
+			logger.Log("type", "di", "service", "db client master", "err", err.Error())
 			os.Exit(1)
 		}
 
 		err = cl.DB().Ping(ctx)
 		if err != nil {
-			_ = sp.Logger().Log("type", "di", "service", "ping db client master", "err", err.Error())
+			logger.Log("type", "di", "service", "ping db client master", "err", err.Error())
 			os.Exit(1)
 		}
 		closer.Add(cl.Close)
@@ -125,7 +123,7 @@ func (sp *serviceProvider) PGConfig() config.PGConfig {
 	if sp.pgConfig == nil {
 		cfg, err := config.NewPGConfig()
 		if err != nil {
-			_ = sp.Logger().Log("type", "di", "service", "pgConfig", "err", err.Error())
+			logger.Log("type", "di", "service", "pgConfig", "err", err.Error())
 			os.Exit(1)
 		}
 
@@ -138,7 +136,7 @@ func (sp *serviceProvider) GRPCConfig() config.GRPCConfig {
 	if sp.grpcConfig == nil {
 		grpcConfig, err := config.NewGRPCConfig()
 		if err != nil {
-			_ = sp.Logger().Log("config", "http", "error", err.Error())
+			logger.Log("config", "http", "error", err.Error())
 			os.Exit(1)
 		}
 
@@ -187,13 +185,4 @@ func (sp *serviceProvider) AccessService(_ context.Context) access.Service {
 	}
 
 	return sp.accessService
-}
-
-func (sp *serviceProvider) Logger() log.Logger {
-	if sp.logger == nil {
-		logger := log.NewLogfmtLogger(log.NewSyncWriter(os.Stderr))
-		logger = log.With(logger, "ts", log.DefaultTimestampUTC)
-		sp.logger = logger
-	}
-	return sp.logger
 }

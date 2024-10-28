@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"github.com/robertobadjio/tgtime-auth/internal/interceptor"
 	"net"
 	"net/http"
 	"os"
@@ -11,11 +12,13 @@ import (
 	"time"
 
 	kitgrpc "github.com/go-kit/kit/transport/grpc"
+	grpcMiddleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/oklog/oklog/pkg/group"
 	"github.com/robertobadjio/platform-common/pkg/closer"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
+	"github.com/robertobadjio/tgtime-auth/internal/logger"
 	transportAccess "github.com/robertobadjio/tgtime-auth/internal/service/access/transport"
 	"github.com/robertobadjio/tgtime-auth/internal/service/auth/transport"
 	transportServiceHttp "github.com/robertobadjio/tgtime-auth/internal/service/service/transport"
@@ -80,7 +83,7 @@ func (a *App) initAPIGateway(ctx context.Context) error {
 			return err
 		}
 		g.Add(func() error {
-			_ = a.serviceProvider.Logger().Log(
+			logger.Info(
 				"transport",
 				"HTTP",
 				"addr",
@@ -104,7 +107,7 @@ func (a *App) initAPIGateway(ctx context.Context) error {
 			}
 			return srv.Serve(httpListener)
 		}, func(err error) {
-			_ = a.serviceProvider.Logger().Log("transport", "HTTP", "during", "Listen", "err", err)
+			logger.Error("transport", "HTTP", "during", "Listen", "err", err.Error())
 			_ = httpListener.Close()
 		})
 	}
@@ -114,10 +117,15 @@ func (a *App) initAPIGateway(ctx context.Context) error {
 			return err
 		}
 		g.Add(func() error {
-			_ = a.serviceProvider.Logger().Log("transport", "GRPC", "addr", a.serviceProvider.GRPCConfig().Address())
+			logger.Info("transport", "GRPC", "addr", a.serviceProvider.GRPCConfig().Address())
 
 			baseServer := grpc.NewServer(
-				grpc.UnaryInterceptor(kitgrpc.Interceptor),
+				grpc.UnaryInterceptor(
+					grpcMiddleware.ChainUnaryServer(
+						kitgrpc.Interceptor,
+						interceptor.LogInterceptor,
+					),
+				),
 			)
 
 			reflection.Register(baseServer)
@@ -132,7 +140,8 @@ func (a *App) initAPIGateway(ctx context.Context) error {
 			)
 
 			return baseServer.Serve(grpcListener)
-		}, func(error) {
+		}, func(err error) {
+			logger.Error("transport", "GRPC", "during", "Listen", "err", err.Error())
 			_ = grpcListener.Close()
 		})
 	}
