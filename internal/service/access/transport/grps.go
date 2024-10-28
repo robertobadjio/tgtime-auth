@@ -21,7 +21,7 @@ func NewGRPCServer(ep endpoints.Set) access_v1.AccessV1Server {
 		check: grpctransport.NewServer(
 			ep.CheckEndpoint,
 			decodeGRPCCheckRequest,
-			nil,
+			encodeGRPCCheckResponse,
 		),
 	}
 }
@@ -31,14 +31,15 @@ func (g *grpcServer) Check(
 	r *access_v1.CheckRequest,
 ) (*emptypb.Empty, error) {
 	_, _, err := g.check.ServeGRPC(ctx, r)
-	if err != nil {
-		return nil, err
-	}
-	return nil, nil
+	return &emptypb.Empty{}, err
 }
 
 func decodeGRPCCheckRequest(_ context.Context, grpcReq interface{}) (interface{}, error) {
 	req := grpcReq.(*access_v1.CheckRequest)
 
 	return endpoints.CheckRequest{EndpointAddress: req.EndpointAddress}, nil
+}
+
+func encodeGRPCCheckResponse(_ context.Context, _ interface{}) (interface{}, error) {
+	return &emptypb.Empty{}, nil
 }

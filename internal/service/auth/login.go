@@ -9,8 +9,8 @@ import (
 )
 
 // Login ???
-func (s *service) Login(ctx context.Context, login string, password string) (string, error) {
-	user, err := s.userRepo.GetUser(ctx, login)
+func (s *service) Login(ctx context.Context, email string, password string) (string, error) {
+	user, err := s.userRepo.GetUser(ctx, email)
 	if err != nil {
 		return "", fmt.Errorf("failed to get user: %w", err)
 	}
@@ -20,8 +20,8 @@ func (s *service) Login(ctx context.Context, login string, password string) (str
 	}
 
 	refreshToken, err := helper.GenerateToken(model.UserInfo{
-		Username: login,
-		Role:     user.Role,
+		Email: email,
+		Role:  user.Role,
 	},
 		[]byte(s.token.RefreshTokenSecretKey()),
 		s.token.RefreshTokenExpiration(),

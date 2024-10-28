@@ -5,12 +5,13 @@ import (
 	"github.com/robertobadjio/tgtime-auth/internal/repository/user"
 )
 
-const tableName = "user"
+const userTableName = "public.user"
 
 const (
-	id       = "id"
-	login    = "login"
-	password = "password"
+	idColumnName       = "id"
+	emailColumnName    = "email"
+	passwordColumnName = "password"
+	roleColumnName     = "role"
 )
 
 // PgUserRepository ???

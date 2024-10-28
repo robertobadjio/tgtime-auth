@@ -5,21 +5,23 @@ import (
 	"fmt"
 
 	sq "github.com/Masterminds/squirrel"
-
 	"github.com/robertobadjio/platform-common/pkg/db"
+
 	"github.com/robertobadjio/tgtime-auth/internal/repository/user/model"
 )
 
 // GetUser ???
-func (r *PgUserRepository) GetUser(ctx context.Context, l string) (*model.User, error) {
-	builderSelect := sq.Select(tableName).
+func (r *PgUserRepository) GetUser(ctx context.Context, email string) (*model.User, error) {
+	builderSelect := sq.
+		Select(idColumnName, emailColumnName, passwordColumnName, roleColumnName).
 		PlaceholderFormat(sq.Dollar).
-		Columns(id, login, password).
-		Where(sq.Eq{"login": l})
+		From(userTableName).
+		Where(sq.Eq{emailColumnName: email}).
+		Limit(1)
 
 	query, args, err := builderSelect.ToSql()
 	if err != nil {
-		return nil, fmt.Errorf("get user query: %w", err)
+		return nil, fmt.Errorf("build user query: %w", err)
 	}
 
 	q := db.Query{
@@ -27,10 +29,11 @@ func (r *PgUserRepository) GetUser(ctx context.Context, l string) (*model.User, 
 		QueryRaw: query,
 	}
 
-	_, err = r.db.DB().ExecContext(ctx, q, args...)
+	var user model.User
+	err = r.db.DB().ScanOneContext(ctx, &user, q, args...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get user: %w", err)
+		return nil, fmt.Errorf("failed to scan user: %w", err)
 	}
 
-	return nil, nil
+	return &user, nil // TODO: convert to service? https://github.com/olezhek28/microservices_course/blob/main/week_3/internal/repository/note/repository.go
 }

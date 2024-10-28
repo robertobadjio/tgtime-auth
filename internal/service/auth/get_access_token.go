@@ -17,14 +17,14 @@ func (s *service) GetAccessToken(ctx context.Context, rt string) (string, error)
 		return "", status.Errorf(codes.Aborted, "invalid refresh token")
 	}
 
-	user, err := s.userRepo.GetUser(ctx, claims.Username)
+	user, err := s.userRepo.GetUser(ctx, claims.Email)
 	if err != nil {
 		return "", fmt.Errorf("user not found: %w", err)
 	}
 
 	accessToken, err := helper.GenerateToken(model.UserInfo{
-		Username: claims.Username,
-		Role:     user.Role,
+		Email: claims.Email,
+		Role:  user.Role,
 	},
 		[]byte(s.token.AccessTokenSecretKey()),
 		s.token.AccessTokenExpiration(),

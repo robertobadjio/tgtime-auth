@@ -12,11 +12,11 @@ import (
 
 	kitgrpc "github.com/go-kit/kit/transport/grpc"
 	"github.com/oklog/oklog/pkg/group"
+	"github.com/robertobadjio/platform-common/pkg/closer"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
-	"github.com/robertobadjio/platform-common/pkg/closer"
-	transport2 "github.com/robertobadjio/tgtime-auth/internal/service/access/transport"
+	transportAccess "github.com/robertobadjio/tgtime-auth/internal/service/access/transport"
 	"github.com/robertobadjio/tgtime-auth/internal/service/auth/transport"
 	transportServiceHttp "github.com/robertobadjio/tgtime-auth/internal/service/service/transport"
 	"github.com/robertobadjio/tgtime-auth/pkg/api/access_v1"
@@ -89,7 +89,7 @@ func (a *App) initAPIGateway(ctx context.Context) error {
 
 			sm := http.NewServeMux()
 			/*sm.Handle(
-				transport.BasePostfix+transport.VersionAPIPostfix+"/",
+				transportAccess.BasePostfix+transportAccess.VersionAPIPostfix+"/",
 				a.serviceProvider.HTTPTimeHandler(ctx),
 			)*/
 			sm.Handle(
@@ -128,7 +128,7 @@ func (a *App) initAPIGateway(ctx context.Context) error {
 			)
 			access_v1.RegisterAccessV1Server(
 				baseServer,
-				transport2.NewGRPCServer(a.serviceProvider.EndpointAccessSet(ctx)),
+				transportAccess.NewGRPCServer(a.serviceProvider.EndpointAccessSet(ctx)),
 			)
 
 			return baseServer.Serve(grpcListener)

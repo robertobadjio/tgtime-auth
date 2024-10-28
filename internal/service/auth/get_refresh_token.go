@@ -15,14 +15,14 @@ func (s *service) GetRefreshToken(ctx context.Context, rt string) (string, error
 		return "", fmt.Errorf("invalid refresh token: %w", err)
 	}
 
-	user, err := s.userRepo.GetUser(ctx, claims.Username)
+	user, err := s.userRepo.GetUser(ctx, claims.Email)
 	if err != nil {
 		return "", fmt.Errorf("user not found: %w", err)
 	}
 
 	refreshToken, err := helper.GenerateToken(model.UserInfo{
-		Username: user.Login,
-		Role:     user.Role,
+		Email: user.Email,
+		Role:  user.Role,
 	},
 		[]byte(s.token.RefreshTokenSecretKey()),
 		s.token.RefreshTokenExpiration(),

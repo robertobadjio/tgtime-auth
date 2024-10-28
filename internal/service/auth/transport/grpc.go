@@ -51,7 +51,7 @@ func (g *grpcServer) Login(
 func decodeGRPCLoginRequest(_ context.Context, grpcReq interface{}) (interface{}, error) {
 	req := grpcReq.(*auth_v1.LoginRequest)
 
-	return endpoints.LoginRequest{Login: req.Username}, nil
+	return endpoints.LoginRequest{Email: req.Email, Password: req.Password}, nil
 }
 
 func encodeGRPCLoginResponse(_ context.Context, response interface{}) (interface{}, error) {
@@ -64,7 +64,7 @@ func (g *grpcServer) GetRefreshToken(
 	ctx context.Context,
 	r *auth_v1.GetRefreshTokenRequest,
 ) (*auth_v1.GetRefreshTokenResponse, error) {
-	_, resp, err := g.login.ServeGRPC(ctx, r)
+	_, resp, err := g.getRefreshToken.ServeGRPC(ctx, r)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +87,7 @@ func (g *grpcServer) GetAccessToken(
 	ctx context.Context,
 	r *auth_v1.GetAccessTokenRequest,
 ) (*auth_v1.GetAccessTokenResponse, error) {
-	_, resp, err := g.login.ServeGRPC(ctx, r)
+	_, resp, err := g.getAccessToken.ServeGRPC(ctx, r)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +101,7 @@ func decodeGRPCGetAccessTokenRequest(_ context.Context, grpcReq interface{}) (in
 }
 
 func encodeGRPCGetAccessTokenResponse(_ context.Context, response interface{}) (interface{}, error) {
-	res := response.(endpoints.GetRefreshTokenResponse)
+	res := response.(endpoints.GetAccessTokenResponse)
 
-	return &auth_v1.GetAccessTokenResponse{AccessToken: res.RefreshToken}, nil
+	return &auth_v1.GetAccessTokenResponse{AccessToken: res.AccessToken}, nil
 }

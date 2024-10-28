@@ -44,7 +44,7 @@ func (s *service) Check(ctx context.Context, endpointAddress string) error {
 
 	role, ok := accessibleMap[endpointAddress]
 	if !ok {
-		return nil
+		return errors.New("route not found")
 	}
 
 	if role == claims.Role {
