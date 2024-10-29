@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/opentracing/opentracing-go"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -12,6 +13,9 @@ import (
 )
 
 func (s *service) GetAccessToken(ctx context.Context, rt string) (string, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "auth.GetAccessToken")
+	defer span.Finish()
+
 	claims, err := helper.VerifyToken(rt, []byte(s.token.RefreshTokenSecretKey()))
 	if err != nil {
 		return "", status.Errorf(codes.Aborted, "invalid refresh token")

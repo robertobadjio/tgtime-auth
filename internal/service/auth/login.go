@@ -4,12 +4,19 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/opentracing/opentracing-go"
+
 	"github.com/robertobadjio/tgtime-auth/internal/helper"
 	"github.com/robertobadjio/tgtime-auth/internal/service/auth/model"
 )
 
 // Login ???
 func (s *service) Login(ctx context.Context, email string, password string) (string, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "auth.Login")
+	defer span.Finish()
+
+	span.SetTag("email", email)
+
 	user, err := s.userRepo.GetUser(ctx, email)
 	if err != nil {
 		return "", fmt.Errorf("failed to get user: %w", err)

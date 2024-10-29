@@ -84,7 +84,7 @@ services:
     networks:
       - tgtime-auth-network
 
-  postgresql_exporter:
+  postgresql-exporter:
     image: wrouesnel/postgres_exporter:v0.8.0
     restart: unless-stopped
     networks:
@@ -92,6 +92,19 @@ services:
     environment:
       DATA_SOURCE_NAME: "postgres://${DATABASE_PG_USER}:${DATABASE_PG_PASSWORD}@database:${DATABASE_PG_PORT}/${DATABASE_PG_NAME}?sslmode=${DATABASE_PG_SSL_MODE}"
       PG_EXPORTER_AUTO_DISCOVER_DATABASES: true
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.48
+    ports:
+      - "5775:5775/udp"
+      - "${JAEGER_CLIENT_PORT}:${JAEGER_CLIENT_PORT}/udp" # jaeger-client
+      - "6832:6832/udp"
+      - "5778:5778"
+      - "${JAEGER_PORT_WEB}:${JAEGER_PORT_WEB}" # web
+      - "14268:14268"
+      - "9411:9411"
+    networks:
+      - tgtime-auth-network
 
 networks:
   tgtime-auth-network:

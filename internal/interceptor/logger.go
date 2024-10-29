@@ -9,6 +9,7 @@ import (
 	"github.com/robertobadjio/tgtime-auth/internal/logger"
 )
 
+// LogInterceptor ???
 func LogInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 	now := time.Now()
 

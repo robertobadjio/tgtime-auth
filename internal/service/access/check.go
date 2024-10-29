@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/opentracing/opentracing-go"
 	"google.golang.org/grpc/metadata"
 
 	"github.com/robertobadjio/tgtime-auth/internal/helper"
@@ -16,6 +17,11 @@ const authPrefix = "Bearer "
 var accessibleRoles map[string]string
 
 func (s *service) Check(ctx context.Context, endpointAddress string) error {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "access.Check")
+	defer span.Finish()
+
+	span.SetTag("endpointAddress", endpointAddress)
+
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
 		return errors.New("metadata is not provided")

@@ -3,12 +3,10 @@ package app
 import (
 	"context"
 	"net/http"
-	"os"
 
 	"github.com/robertobadjio/platform-common/pkg/closer"
 	"github.com/robertobadjio/platform-common/pkg/db"
 	"github.com/robertobadjio/platform-common/pkg/db/pg"
-
 	"github.com/robertobadjio/tgtime-auth/internal/config"
 	"github.com/robertobadjio/tgtime-auth/internal/logger"
 	"github.com/robertobadjio/tgtime-auth/internal/repository/user"
@@ -41,20 +39,33 @@ type serviceProvider struct {
 
 	userRepository user.Repository
 
-	token      config.Token
-	promConfig config.PromConfig
+	token        config.Token
+	promConfig   config.PromConfig
+	jaegerConfig config.JaegerConfig
 }
 
 func newServiceProvider() *serviceProvider {
 	return &serviceProvider{}
 }
 
+func (sp *serviceProvider) JaegerConfig() config.JaegerConfig {
+	if sp.jaegerConfig == nil {
+		jaegerConfig, err := config.NewJaegerConfig()
+		if err != nil {
+			logger.Fatal("config", "jaeger", "error", err.Error())
+		}
+
+		sp.jaegerConfig = jaegerConfig
+	}
+
+	return sp.jaegerConfig
+}
+
 func (sp *serviceProvider) PromConfig() config.PromConfig {
 	if sp.promConfig == nil {
 		promConfig, err := config.NewPromConfig()
 		if err != nil {
-			logger.Error("config", "http", "error", err.Error())
-			os.Exit(1)
+			logger.Fatal("config", "http", "error", err.Error())
 		}
 
 		sp.promConfig = promConfig
@@ -67,8 +78,7 @@ func (sp *serviceProvider) HTTPConfig() config.HTTPConfig {
 	if sp.httpConfig == nil {
 		httpConfig, err := config.NewHTTPConfig()
 		if err != nil {
-			logger.Error("config", "http", "error", err.Error())
-			os.Exit(1)
+			logger.Fatal("config", "http", "error", err.Error())
 		}
 
 		sp.httpConfig = httpConfig
@@ -103,8 +113,7 @@ func (sp *serviceProvider) Token() config.Token {
 	if sp.token == nil {
 		token, err := config.NewToken()
 		if err != nil {
-			logger.Error("type", "di", "service", "token", "err", err.Error())
-			os.Exit(1)
+			logger.Fatal("type", "di", "service", "token", "err", err.Error())
 		}
 
 		sp.token = token
@@ -117,14 +126,12 @@ func (sp *serviceProvider) DB(ctx context.Context) db.Client {
 	if sp.db == nil {
 		cl, err := pg.New(ctx, sp.PGConfig().DSN())
 		if err != nil {
-			logger.Error("type", "di", "service", "db client master", "err", err.Error())
-			os.Exit(1)
+			logger.Fatal("type", "di", "service", "db client master", "err", err.Error())
 		}
 
 		err = cl.DB().Ping(ctx)
 		if err != nil {
-			logger.Error("type", "di", "service", "ping db client master", "err", err.Error())
-			os.Exit(1)
+			logger.Fatal("type", "di", "service", "ping db client master", "err", err.Error())
 		}
 		closer.Add(cl.Close)
 
@@ -138,8 +145,7 @@ func (sp *serviceProvider) PGConfig() config.PGConfig {
 	if sp.pgConfig == nil {
 		cfg, err := config.NewPGConfig()
 		if err != nil {
-			logger.Log("type", "di", "service", "pgConfig", "err", err.Error())
-			os.Exit(1)
+			logger.Fatal("type", "di", "service", "pgConfig", "err", err.Error())
 		}
 
 		sp.pgConfig = cfg
@@ -151,8 +157,7 @@ func (sp *serviceProvider) GRPCConfig() config.GRPCConfig {
 	if sp.grpcConfig == nil {
 		grpcConfig, err := config.NewGRPCConfig()
 		if err != nil {
-			logger.Error("config", "http", "error", err.Error())
-			os.Exit(1)
+			logger.Fatal("config", "http", "error", err.Error())
 		}
 
 		sp.grpcConfig = grpcConfig

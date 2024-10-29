@@ -3,7 +3,6 @@ package app
 import (
 	"context"
 	"fmt"
-	"github.com/robertobadjio/tgtime-auth/internal/metric"
 	"net"
 	"net/http"
 	"os"
@@ -16,17 +15,21 @@ import (
 	"github.com/oklog/oklog/pkg/group"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/robertobadjio/platform-common/pkg/closer"
+	"github.com/uber/jaeger-client-go/config"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
 	"github.com/robertobadjio/tgtime-auth/internal/interceptor"
 	"github.com/robertobadjio/tgtime-auth/internal/logger"
+	"github.com/robertobadjio/tgtime-auth/internal/metric"
 	transportAccess "github.com/robertobadjio/tgtime-auth/internal/service/access/transport"
 	"github.com/robertobadjio/tgtime-auth/internal/service/auth/transport"
 	transportServiceHttp "github.com/robertobadjio/tgtime-auth/internal/service/service/transport"
 	"github.com/robertobadjio/tgtime-auth/pkg/api/access_v1"
 	"github.com/robertobadjio/tgtime-auth/pkg/api/auth_v1"
 )
+
+const serviceName = "tgtime-auth-service"
 
 // App ???
 type App struct {
@@ -61,6 +64,7 @@ func (a *App) initDeps(ctx context.Context) error {
 		a.initServiceProvider,
 		a.initAPIGateway,
 		a.initPrometheus,
+		a.initTracing,
 		// TODO: Init swagger
 	}
 
@@ -128,6 +132,7 @@ func (a *App) initAPIGateway(ctx context.Context) error {
 						kitgrpc.Interceptor,
 						interceptor.LogInterceptor,
 						interceptor.MetricsInterceptor,
+						interceptor.ServerTracingInterceptor,
 					),
 				),
 			)
@@ -173,11 +178,10 @@ func (a *App) initAPIGateway(ctx context.Context) error {
 func (a *App) initPrometheus(ctx context.Context) error {
 	err := metric.Init(ctx)
 	if err != nil {
-		logger.Error(
+		logger.Fatal(
 			"component", "prometheus",
 			"error", err.Error(),
 		)
-		os.Exit(1)
 	}
 
 	httpListener, err := net.Listen("tcp", a.serviceProvider.PromConfig().Address())
@@ -196,8 +200,9 @@ func (a *App) initPrometheus(ctx context.Context) error {
 		sm.Handle("/metrics", promhttp.Handler()) // TODO: In const?
 
 		srv := &http.Server{
-			//Addr:    a.serviceProvider.promConfig.Address(),
-			Handler: sm,
+			Handler:      sm,
+			ReadTimeout:  5 * time.Second,
+			WriteTimeout: 10 * time.Second,
 		}
 
 		return srv.Serve(httpListener)
@@ -205,6 +210,26 @@ func (a *App) initPrometheus(ctx context.Context) error {
 		logger.Error("transport", "HTTP", "component", "prometheus", "during", "listen", "err", err.Error())
 		_ = httpListener.Close()
 	})
+
+	return nil
+}
+
+func (a *App) initTracing(_ context.Context) error {
+	cfg := config.Configuration{
+		Sampler: &config.SamplerConfig{
+			Type:  "const",
+			Param: 1,
+		},
+		Reporter: &config.ReporterConfig{
+			LocalAgentHostPort: a.serviceProvider.JaegerConfig().Address(),
+		},
+	}
+
+	_, err := cfg.InitGlobalTracer(serviceName)
+	if err != nil {
+		logger.Error("component", "tracing", "init", err.Error())
+		return err
+	}
 
 	return nil
 }
