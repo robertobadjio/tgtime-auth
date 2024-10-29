@@ -35,5 +35,5 @@ func (r *PgUserRepository) GetUser(ctx context.Context, email string) (*model.Us
 		return nil, fmt.Errorf("failed to scan user: %w", err)
 	}
 
-	return &user, nil // TODO: convert to service? https://github.com/olezhek28/microservices_course/blob/main/week_3/internal/repository/note/repository.go
+	return &user, nil
 }

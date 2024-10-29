@@ -14,7 +14,7 @@ require (
 	github.com/opentracing/opentracing-go v1.2.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.11.1
-	github.com/robertobadjio/platform-common v0.0.2
+	github.com/robertobadjio/platform-common v1.0.0
 	github.com/uber/jaeger-client-go v2.30.0+incompatible
 	golang.org/x/crypto v0.26.0
 	google.golang.org/grpc v1.67.1

@@ -7,6 +7,7 @@ import (
 	"github.com/robertobadjio/platform-common/pkg/closer"
 	"github.com/robertobadjio/platform-common/pkg/db"
 	"github.com/robertobadjio/platform-common/pkg/db/pg"
+
 	"github.com/robertobadjio/tgtime-auth/internal/config"
 	"github.com/robertobadjio/tgtime-auth/internal/logger"
 	"github.com/robertobadjio/tgtime-auth/internal/repository/user"
@@ -22,7 +23,7 @@ import (
 
 type serviceProvider struct {
 	pgConfig config.PGConfig
-	db       db.Client
+	dbMaster db.Client
 
 	grpcConfig config.GRPCConfig
 	httpConfig config.HTTPConfig
@@ -122,23 +123,23 @@ func (sp *serviceProvider) Token() config.Token {
 	return sp.token
 }
 
-func (sp *serviceProvider) DB(ctx context.Context) db.Client {
-	if sp.db == nil {
-		cl, err := pg.New(ctx, sp.PGConfig().DSN())
+func (sp *serviceProvider) DBMaster(ctx context.Context) db.Client {
+	if sp.dbMaster == nil {
+		cl, err := pg.New(ctx, sp.PGConfig().DSN(), sp.PGConfig().QueryTimeout())
 		if err != nil {
-			logger.Fatal("type", "di", "service", "db client master", "err", err.Error())
+			logger.Fatal("type", "di", "service", "dbMaster client master", "err", err.Error())
 		}
 
 		err = cl.DB().Ping(ctx)
 		if err != nil {
-			logger.Fatal("type", "di", "service", "ping db client master", "err", err.Error())
+			logger.Fatal("type", "di", "service", "ping dbMaster client master", "err", err.Error())
 		}
 		closer.Add(cl.Close)
 
-		sp.db = cl
+		sp.dbMaster = cl
 	}
 
-	return sp.db
+	return sp.dbMaster
 }
 
 func (sp *serviceProvider) PGConfig() config.PGConfig {
@@ -168,7 +169,7 @@ func (sp *serviceProvider) GRPCConfig() config.GRPCConfig {
 
 func (sp *serviceProvider) UserRepository(ctx context.Context) user.Repository {
 	if sp.userRepository == nil {
-		sp.userRepository = pg_db.NewPgRepository(sp.DB(ctx))
+		sp.userRepository = pg_db.NewPgRepository(sp.DBMaster(ctx))
 	}
 
 	return sp.userRepository
