@@ -13,8 +13,8 @@ var globalLogger log.Logger
 
 func init() {
 	file := log.NewSyncWriter(&lumberjack.Logger{
-		Filename:   "logs/app.log", // TODO: .env file
-		MaxSize:    10,             // megabytes
+		Filename:   "logs/app.log",
+		MaxSize:    10, // megabytes
 		MaxBackups: 3,
 		MaxAge:     7, // days
 	})

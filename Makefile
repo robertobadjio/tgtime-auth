@@ -75,7 +75,7 @@ grpc-load-test: ## Run GRPC load testing
 	ghz \
 		--proto api/v1/pb/auth.proto \
 		--call auth_v1.AuthV1.Login \
-		--data '{"email": "test3@tgtime.ru", "password": "vtlcgjgek"}' \
+		--data '{"email": "test3@tgtime.ru", "password": "favrttyrr1"}' \
 		--rps 100 \
 		--total 3000 \
 		--insecure \

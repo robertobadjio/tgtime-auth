@@ -30,6 +30,7 @@ import (
 )
 
 const serviceName = "tgtime-auth-service"
+const promMetricsPath = "/metrics"
 
 // App ???
 type App struct {
@@ -65,12 +66,15 @@ func (a *App) initDeps(ctx context.Context) error {
 		a.initAPIGateway,
 		a.initPrometheus,
 		a.initTracing,
-		// TODO: Init swagger
 	}
 
 	for _, f := range inits {
 		err := f(ctx)
 		if err != nil {
+			logger.Fatal(
+				"init", "deps",
+				"error", err.Error(),
+			)
 			return err
 		}
 	}
@@ -98,10 +102,6 @@ func (a *App) initAPIGateway(ctx context.Context) error {
 			)
 
 			sm := http.NewServeMux()
-			/*sm.Handle(
-				transportAccess.BasePostfix+transportAccess.VersionAPIPostfix+"/",
-				a.serviceProvider.HTTPTimeHandler(ctx),
-			)*/
 			sm.Handle(
 				transportServiceHttp.ServiceStatus,
 				a.serviceProvider.HTTPServiceHandler(ctx),
@@ -130,6 +130,7 @@ func (a *App) initAPIGateway(ctx context.Context) error {
 				grpc.UnaryInterceptor(
 					grpcMiddleware.ChainUnaryServer(
 						kitgrpc.Interceptor,
+						interceptor.ErrorCodesInterceptor,
 						interceptor.LogInterceptor,
 						interceptor.MetricsInterceptor,
 						interceptor.ServerTracingInterceptor,
@@ -178,10 +179,7 @@ func (a *App) initAPIGateway(ctx context.Context) error {
 func (a *App) initPrometheus(ctx context.Context) error {
 	err := metric.Init(ctx)
 	if err != nil {
-		logger.Fatal(
-			"component", "prometheus",
-			"error", err.Error(),
-		)
+		return err
 	}
 
 	httpListener, err := net.Listen("tcp", a.serviceProvider.PromConfig().Address())
@@ -197,7 +195,7 @@ func (a *App) initPrometheus(ctx context.Context) error {
 		)
 
 		sm := http.NewServeMux()
-		sm.Handle("/metrics", promhttp.Handler()) // TODO: In const?
+		sm.Handle(promMetricsPath, promhttp.Handler())
 
 		srv := &http.Server{
 			Handler:      sm,
@@ -227,7 +225,6 @@ func (a *App) initTracing(_ context.Context) error {
 
 	_, err := cfg.InitGlobalTracer(serviceName)
 	if err != nil {
-		logger.Error("component", "tracing", "init", err.Error())
 		return err
 	}
 

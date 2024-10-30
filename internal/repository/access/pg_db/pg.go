@@ -2,16 +2,13 @@ package pg_db
 
 import (
 	"github.com/robertobadjio/platform-common/pkg/db"
-
-	"github.com/robertobadjio/tgtime-auth/internal/repository/user"
+	"github.com/robertobadjio/tgtime-auth/internal/repository/access"
 )
 
-const userTableName = "public.user"
+const accessTableName = "public.access"
 
 const (
-	idColumnName       = "id"
-	emailColumnName    = "email"
-	passwordColumnName = "password"
+	endpointColumnName = "endpoint"
 	roleColumnName     = "role"
 )
 
@@ -21,6 +18,6 @@ type PgUserRepository struct {
 }
 
 // NewPgRepository ???
-func NewPgRepository(db db.Client) user.Repository {
+func NewPgRepository(db db.Client) access.Repository {
 	return &PgUserRepository{db: db}
 }

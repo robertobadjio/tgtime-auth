@@ -2,27 +2,30 @@ package auth
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/opentracing/opentracing-go"
+	"github.com/robertobadjio/platform-common/pkg/sys"
+	"github.com/robertobadjio/platform-common/pkg/sys/codes"
 
 	"github.com/robertobadjio/tgtime-auth/internal/helper"
 	"github.com/robertobadjio/tgtime-auth/internal/service/auth/model"
 )
 
+const spanGetRefreshTokenOperationName = "auth.GetRefreshToken"
+
 // GetRefreshToken ???
 func (s *service) GetRefreshToken(ctx context.Context, rt string) (string, error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "auth.GetRefreshToken")
+	span, ctx := opentracing.StartSpanFromContext(ctx, spanGetRefreshTokenOperationName)
 	defer span.Finish()
 
 	claims, err := helper.VerifyToken(rt, []byte(s.token.RefreshTokenSecretKey()))
 	if err != nil {
-		return "", fmt.Errorf("invalid refresh token: %w", err)
+		return "", sys.NewCommonError("invalid refresh token", codes.Aborted)
 	}
 
 	user, err := s.userRepo.GetUser(ctx, claims.Email)
 	if err != nil {
-		return "", fmt.Errorf("user not found: %w", err)
+		return "", sys.NewCommonError("failed to get user", codes.Internal)
 	}
 
 	refreshToken, err := helper.GenerateToken(model.UserInfo{
@@ -33,7 +36,7 @@ func (s *service) GetRefreshToken(ctx context.Context, rt string) (string, error
 		s.token.RefreshTokenExpiration(),
 	)
 	if err != nil {
-		return "", fmt.Errorf("failed to generate refresh token: %w", err)
+		return "", sys.NewCommonError("failed to generate refresh token", codes.Aborted)
 	}
 
 	return refreshToken, nil

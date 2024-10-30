@@ -10,6 +10,8 @@ import (
 
 	"github.com/robertobadjio/tgtime-auth/internal/config"
 	"github.com/robertobadjio/tgtime-auth/internal/logger"
+	accessRepo "github.com/robertobadjio/tgtime-auth/internal/repository/access"
+	pgDbAccess "github.com/robertobadjio/tgtime-auth/internal/repository/access/pg_db"
 	"github.com/robertobadjio/tgtime-auth/internal/repository/user"
 	"github.com/robertobadjio/tgtime-auth/internal/repository/user/pg_db"
 	"github.com/robertobadjio/tgtime-auth/internal/service/access"
@@ -38,7 +40,8 @@ type serviceProvider struct {
 	endpointAccessSet endpointsAccess.Set
 	accessService     access.Service
 
-	userRepository user.Repository
+	userRepository   user.Repository
+	accessRepository accessRepo.Repository
 
 	token        config.Token
 	promConfig   config.PromConfig
@@ -175,6 +178,14 @@ func (sp *serviceProvider) UserRepository(ctx context.Context) user.Repository {
 	return sp.userRepository
 }
 
+func (sp *serviceProvider) AccessRepository(ctx context.Context) accessRepo.Repository {
+	if sp.accessRepository == nil {
+		sp.accessRepository = pgDbAccess.NewPgRepository(sp.DBMaster(ctx))
+	}
+
+	return sp.accessRepository
+}
+
 func (sp *serviceProvider) EndpointAuthSet(ctx context.Context) endpoints.Set {
 	sp.endpointAuthSet = endpoints.NewEndpointSet(sp.AuthService(ctx))
 
@@ -198,10 +209,11 @@ func (sp *serviceProvider) AuthService(ctx context.Context) auth.Service {
 	return sp.authService
 }
 
-func (sp *serviceProvider) AccessService(_ context.Context) access.Service {
+func (sp *serviceProvider) AccessService(ctx context.Context) access.Service {
 	if sp.accessService == nil {
 		sp.accessService = access.NewService(
 			sp.Token(),
+			sp.AccessRepository(ctx),
 		)
 	}
 
